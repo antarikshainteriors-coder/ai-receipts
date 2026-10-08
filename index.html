@@ -10,12 +10,12 @@
    Project settings > Your apps > SDK setup and configuration > Config).
    ===================================================================== */
 const FIREBASE_CONFIG = {
-  apiKey: "PASTE_API_KEY",
-  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
-  projectId: "PASTE_PROJECT_ID",
-  storageBucket: "PASTE_PROJECT_ID.appspot.com",
-  messagingSenderId: "PASTE_SENDER_ID",
-  appId: "PASTE_APP_ID"
+  apiKey: "AIzaSyDgdxQJk6wlCxAxzXX5nnFLnNR6fBTAiro",
+  authDomain: "antariksha-receipts.firebaseapp.com",
+  projectId: "antariksha-receipts",
+  storageBucket: "antariksha-receipts.firebasestorage.app",
+  messagingSenderId: "26758382995",
+  appId: "1:26758382995:web:f25fed2cbc168bbc0c5466"
 };
 /* STEP 2: Only this Google account can sign in (must match firestore.rules). */
 const ALLOWED_EMAIL = "antarikshainteriors@gmail.com";
@@ -603,7 +603,7 @@ $("gateLogo").src=LOGO;
 (()=>{
   const gate=$("gate"),app=$("app"),msg=$("gateMsg"),btn=$("signIn");
   const show=(signed)=>{gate.hidden=signed;app.hidden=!signed};
-  if(!window.firebase||String(FIREBASE_CONFIG.apiKey).startsWith("PASTE")){show(false);btn.hidden=true;msg.textContent="Setup needed: paste your Firebase config at the top of index.html, then deploy again.";return}
+  if(!window.firebase||String(FIREBASE_CONFIG.apiKey).startsWith("PASTE")){show(false);btn.hidden=true;msg.textContent="Setup needed: paste your Firebase config at the top of index.html, then upload it to GitHub again.";return}
   firebase.initializeApp(FIREBASE_CONFIG);const auth=firebase.auth();fs=firebase.firestore();
   db=fs;assets=fbAssets;downloads=localDownloads;
   const provider=new firebase.auth.GoogleAuthProvider();provider.setCustomParameters({prompt:"select_account"});
