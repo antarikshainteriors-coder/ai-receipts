@@ -250,7 +250,17 @@ const DEF_TERMS={
   exclusions:"Decorative lights, furnishings, sofa, ceiling fan & lights, switch boards and curtains are Not included in this quotation.",
   binding:"This quotation, once accepted by the Client, shall be binding on both parties."
 };
-const DEF_CLIENT={name:"",site:"",type:"Residential",preparedBy:"Antariksha Interiors",contact:"8830538556"};
+const DEF_CLIENT={name:"",site:"",type:"",subType:"",preparedBy:"Antariksha Interiors",contact:"8830538556"};
+const BASE_TYPES=["Residential","Commercial","Office","Clinic","Retail","Hospitality"];
+const BASE_SUBTYPES={Residential:["1 RK","1 Room","1 BHK","2 BHK","3 BHK","Studio Apartment","Villa","Individual House"]};
+/* suggestions = built-in list + anything you typed in earlier quotations */
+function typeSuggestions(){const t=new Set(BASE_TYPES);for(const q of quotes)if(q.client?.type)t.add(q.client.type);if(cur?.client?.type)t.add(cur.client.type);return [...t]}
+function subTypeSuggestions(type){const key=(type||"").trim().toLowerCase();const out=new Set();
+  for(const [k,v] of Object.entries(BASE_SUBTYPES))if(k.toLowerCase()===key)v.forEach(x=>out.add(x));
+  for(const q of quotes)if((q.client?.type||"").trim().toLowerCase()===key&&q.client?.subType)out.add(q.client.subType);
+  return [...out]}
+const opts=list=>list.map(v=>`<option value="${esc(v)}"></option>`).join("");
+const typeLabel=c=>[c.type,c.subType].map(x=>(x||"").trim()).filter(Boolean).join(" – ");
 
 /* ===================== helpers ===================== */
 const $=id=>document.getElementById(id);
@@ -301,7 +311,7 @@ let fs=null,auth=null,quotes=[],cur=null,defaults=null,saveT=null,dirty=false;
 function blankQuote(no){
   const d=defaults||{};
   return {id:"q"+Date.now().toString(36)+uid().slice(0,4),no:no||"",status:"draft",
-    date:todayISO(),client:{...DEF_CLIENT,...(d.client||{}),name:"",site:""},
+    date:todayISO(),client:{...DEF_CLIENT,...(d.client||{}),name:"",site:"",type:"",subType:""},
     settings:{...DEF_SETTINGS,...(d.settings||{})},
     areas:[newArea("")],services:[],terms:clone(d.terms||DEF_TERMS),createdAt:Date.now(),updatedAt:Date.now()};
 }
@@ -339,7 +349,7 @@ function renderList(){
   const list=quotes.filter(q=>!s||[q.no,q.client?.name,q.client?.site].join(" ").toLowerCase().includes(s));
   if(!list.length){tb.innerHTML=`<tr><td colspan="9"><div class="empty"><b>${quotes.length?"No quotations match that search.":"No quotations yet"}</b>${quotes.length?"":"Press <b style='display:inline;font-size:inherit'>New quotation</b> to start one, or <b style='display:inline;font-size:inherit'>Import from Excel</b> to bring in a quotation from your Excel master file."}</div></td></tr>`;return}
   tb.innerHTML=list.map(q=>{const S=q.summary||{};const st=q.status||"draft";
-    return `<tr class="open-row" data-open="${esc(q.id)}"><td class="num"><b>${esc(q.no||"—")}</b></td><td>${esc(q.client?.name||"Untitled")}</td><td>${esc(q.client?.site||"")}</td><td>${esc(fmtDate(q.date))}</td>
+    return `<tr class="open-row" data-open="${esc(q.id)}"><td class="num"><b>${esc(q.no||"—")}</b></td><td>${esc(q.client?.name||"Untitled")}${typeLabel(q.client||{})?`<div class="muted" style="font-size:12px">${esc(typeLabel(q.client||{}))}</div>`:""}</td><td>${esc(q.client?.site||"")}</td><td>${esc(fmtDate(q.date))}</td>
     <td><span class="chip ${st}">${st==="sent"?"Sent":st==="approved"?"Approved":"Draft"}</span></td>
     <td class="r num">${rs(S.vendor)}</td><td class="r num"><b>${rs(S.grand)}</b></td><td class="r num">${rs(S.profit)}</td>
     <td class="r" style="white-space:nowrap"><button class="btn sm" data-dup="${esc(q.id)}" type="button">Duplicate</button> <button class="btn sm danger" data-del="${esc(q.id)}" type="button">Delete</button></td></tr>`}).join("");
@@ -389,7 +399,9 @@ function renderEditor(){
   <div class="card"><h2>Client &amp; project details</h2><div class="det">
     <label>Client name<input data-k="client.name" value="${esc(c.name)}" placeholder="e.g. Clinic Design"></label>
     <label>Site address / location<input data-k="client.site" value="${esc(c.site)}" placeholder="e.g. Viman Nagar"></label>
-    <label>Type<select data-k="client.type">${["Residential","Commercial","Office","Clinic","Retail","Hospitality","Other"].map(t=>`<option${t===c.type?" selected":""}>${t}</option>`).join("")}${["Residential","Commercial","Office","Clinic","Retail","Hospitality","Other"].includes(c.type)?"":`<option selected>${esc(c.type)}</option>`}</select></label>
+    <label>Property type<input data-k="client.type" list="dlType" value="${esc(c.type)}" placeholder="Select or type" autocomplete="off"></label>
+    <label>Sub-type<input data-k="client.subType" list="dlSub" value="${esc(c.subType)}" placeholder="Select or type (optional)" autocomplete="off"></label>
+    <datalist id="dlType">${opts(typeSuggestions())}</datalist><datalist id="dlSub">${opts(subTypeSuggestions(c.type))}</datalist>
     <label>Quotation no.<input data-k="no" value="${esc(q.no)}"></label>
     <label>Quotation date<input type="date" data-k="date" value="${esc(q.date)}"></label>
     <label>Prepared by<input data-k="client.preparedBy" value="${esc(c.preparedBy)}"></label>
@@ -502,7 +514,7 @@ function refresh(){
   document.querySelectorAll("#payRows [data-pay]").forEach((el,i)=>{const p=C.payments[i];el.querySelector("[data-pamt]").textContent=p?rs(p.amt):""});
   const pc=$("payCheck");if(pc){const ok=Math.abs(C.paySum-100)<0.001;pc.className=ok?"okline":"warnline";pc.textContent=ok?"Stages add up to 100%":`Stages add up to ${fmtIn(C.paySum)}%. They should add up to 100%.`}
   $("edTitle").textContent=q.client.name||"Untitled quotation";
-  $("edSub").textContent=[q.no,q.client.site,fmtDate(q.date)].filter(Boolean).join("  ·  ");
+  $("edSub").textContent=[q.no,q.client.site,typeLabel(q.client),fmtDate(q.date)].filter(Boolean).join("  ·  ");
 }
 const ownerOf=new WeakMap();
 function findRow(id){for(const a of cur.areas)for(const r of a.items)if(r.id===id){ownerOf.set(r,a.items);return r}
@@ -515,7 +527,9 @@ $("edMain").addEventListener("change",onInput);$("edAside").addEventListener("ch
 function setPath(obj,path,val){const ks=path.split(".");let o=obj;for(let i=0;i<ks.length-1;i++)o=o[ks[i]];o[ks.at(-1)]=val}
 function onInput(e){
   const t=e.target;if(!cur)return;
-  if(t.dataset.k){setPath(cur,t.dataset.k,t.value);refresh();scheduleSave();return}
+  if(t.dataset.k){setPath(cur,t.dataset.k,t.value);
+    if(t.dataset.k==="client.type"){const d=$("dlSub");if(d)d.innerHTML=opts(subTypeSuggestions(t.value))}
+    refresh();scheduleSave();return}
   if(t.dataset.s){const k=t.dataset.s;cur.settings[k]=k==="designMode"?t.value:num(t.value);
     if(k==="designMode"){const l=$("dvLbl");if(l)l.firstChild.textContent=t.value==="fixed"?"Design charges ₹":"Design charges %"}
     refresh();scheduleSave();return}
@@ -557,7 +571,7 @@ async function onClick(e){
   if(g==="addSvc"){const n=newRow("LS");cur.services.push(n);renderEditor();scheduleSave();focusRow(n.id)}
   if(g==="addPay"){cur.terms.payments.push({label:"",pct:0});renderPays();refresh();scheduleSave()}
   if(g==="resetTerms"){cur.terms=clone((defaults&&defaults.terms)||DEF_TERMS);renderEditor();scheduleSave();toast("Terms reset")}
-  if(g==="saveDefaults"){defaults={settings:clone(cur.settings),terms:clone(cur.terms),client:{type:cur.client.type,preparedBy:cur.client.preparedBy,contact:cur.client.contact}};
+  if(g==="saveDefaults"){defaults={settings:clone(cur.settings),terms:clone(cur.terms),client:{preparedBy:cur.client.preparedBy,contact:cur.client.contact}};
     try{await fs.doc("settings/quoteDefaults").set(defaults);toast("New quotations will start with these terms and settings")}catch(err){toast("Could not save defaults")}}
   if(g==="pdfClient"){await saveNow();try{makeClientPDF(cur)}catch(err){console.error(err);toast("Could not make the PDF: "+err.message)}}
   if(g==="pdfVendor"){await saveNow();try{makeVendorPDF(cur,$("measOnly").checked)}catch(err){console.error(err);toast("Could not make the PDF: "+err.message)}}
@@ -643,7 +657,7 @@ function sectionB(doc,y,q,C,mode){
 const safe=s=>String(s||"").replace(/[\\/:*?"<>|]+/g,"-").replace(/\s+/g,"_").slice(0,50);
 function makeClientPDF(q){
   const C=compute(q),doc=newDoc();let y=brandHeader(doc);
-  y=detailsBlock(doc,y,[["Client Name",q.client.name],["Site Address / Location",q.client.site],["Type",q.client.type],["Quotation No.",q.no],["Quotation Date",fmtDate(q.date)],["Prepared By (Designer / Signatory)",q.client.preparedBy],["Contact No. / Email",q.client.contact]]);
+  y=detailsBlock(doc,y,[["Client Name",q.client.name],["Site Address / Location",q.client.site],["Type",typeLabel(q.client)],["Quotation No.",q.no],["Quotation Date",fmtDate(q.date)],["Prepared By (Designer / Signatory)",q.client.preparedBy],["Contact No. / Email",q.client.contact]]);
   y=sectionA(doc,y,q,C,"client");y=sectionB(doc,y,q,C,"client");
   // summary
   const S=q.settings,box={...gridCell,halign:"right",fontStyle:"bold"};
